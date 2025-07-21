@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
+import Queue from "./Queue";
 const HEADERS = [
   { id: 1, name: "No.", subHeaders: [] },
   {
@@ -15,8 +16,8 @@ const HEADERS = [
           { id: 3, name: "3", subHeaders: [] },
         ],
       },
-      { id: 2, name: "B" },
-      { id: 3, name: "C" },
+      { id: 2, name: "B", subHeaders: [] },
+      { id: 3, name: "C", subHeaders: [] },
     ],
   },
   { id: 3, name: "Remarks", subHeaders: [] },
@@ -31,6 +32,37 @@ export default function App() {
   const subHeaders = HEADERS.flatMap((H) => H.subHeaders);
   const [inputRows, setInputRows] = useState([]);
   const [rowCount, setRowCount] = useState(0);
+  const [flatHeaders, setFlatHeaders] = useState([]);
+  const [maxRowSpan, setMaxRowSpan] = useState(0);
+
+  const flatenHeaders = useCallback((headerObj, tempHeaders) => {
+    let depth = Number.MIN_SAFE_INTEGER;
+    const visited = new Set();
+    const queue = new Queue();
+
+    queue.add({ level: 1, object: headerObj });
+    visited.add(headerObj);
+
+    while (!queue.isEmpty()) {
+      const u = queue.poll();
+      if (tempHeaders.length < u.level) {
+        tempHeaders.push([]);
+      }
+      tempHeaders[u.level - 1].push(u.object);
+
+      depth = Math.max(depth, u.level);
+
+      for (let i = 0; i < u.object.subHeaders.length; i++) {
+        const subHeader = u.object.subHeaders[i];
+        if (!visited.has(subHeader)) {
+          visited.add(subHeader);
+          queue.add({ level: u.level + 1, object: subHeader });
+        }
+      }
+    }
+
+    return depth;
+  }, []);
 
   const prepareRow = useCallback((rowId) => {
     const tempRow = [];
@@ -130,6 +162,17 @@ export default function App() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    const tempHeaders = [];
+    let depth = Number.MIN_SAFE_INTEGER;
+    for (let i = 0; i < HEADERS.length; i++) {
+      const tempDepth = flatenHeaders(HEADERS[i], tempHeaders);
+      depth = Math.max(depth, tempDepth);
+    }
+    setFlatHeaders([...tempHeaders]);
+    setMaxRowSpan(depth);
+  }, [flatenHeaders]);
+
   function handleTableInputChange(e, i, j) {
     setInputRows((prevState) => {
       prevState[i][j].value = e.target.value;
@@ -166,7 +209,47 @@ export default function App() {
       <div>
         <table align="center">
           <thead>
-            <tr>
+            {flatHeaders.map((level, i) => (
+              <tr key={i}>
+                {level.map((fh, j) => {
+                  const hasChildren = fh.subHeaders?.length > 0;
+
+                  // Calculate colSpan recursively
+                  const getLeafCount = (node) => {
+                    if (!node.subHeaders || node.subHeaders.length === 0)
+                      return 1;
+                    return node.subHeaders.reduce(
+                      (acc, sub) => acc + getLeafCount(sub),
+                      0
+                    );
+                  };
+
+                  const colSpan = hasChildren ? getLeafCount(fh) : 1;
+                  const rowSpan = hasChildren ? 1 : maxRowSpan - i;
+
+                  return (
+                    <th key={j} colSpan={colSpan} rowSpan={rowSpan}>
+                      {fh.name}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
+          </thead>
+          {/* <thead>
+            {flatHeaders.map((level, i) => (
+              <tr key={i}>
+                {level.map((fh, j) => (
+                  <th
+                    key={j}
+                    colSpan={fh.subHeaders.length}
+                    rowSpan={maxRowSpan}
+                  >
+                    {fh.name}
+                  </th>
+                ))}
+              </tr> */}
+          {/* <tr>
               {HEADERS.map((H) => (
                 <th
                   key={H.id}
@@ -176,14 +259,14 @@ export default function App() {
                   {H.name}
                 </th>
               ))}
-              <th rowSpan={2}>Action</th>
+              <th rowSpan={maxRowSpan}>Action</th>
             </tr>
             <tr>
               {subHeaders.map((s) => (
                 <th key={s.id}>{s.name}</th>
               ))}
-            </tr>
-          </thead>
+            </tr> */}
+          {/* </thead> */}
           <tbody>
             {inputRows.map((row, i) => (
               <tr key={i}>
