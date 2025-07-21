@@ -24,7 +24,7 @@ const HEADERS = [
 ];
 
 const TABLE_ID = 1;
-const JOB_ID = "2G100045";
+const JOB_ID = "2G100047";
 // const JOB_ID = "2G100046";
 const ENTITY = "ReportTable";
 
@@ -40,8 +40,9 @@ export default function App() {
     const visited = new Set();
     const queue = new Queue();
 
-    queue.add({ level: 1, object: headerObj });
+    queue.add({ level: 1, object: headerObj, parents: [] });
     visited.add(headerObj);
+    const rootNodes = {};
 
     while (!queue.isEmpty()) {
       const u = queue.poll();
@@ -52,6 +53,15 @@ export default function App() {
 
       depth = Math.max(depth, u.level);
 
+      if (u.object.subHeaders.length > 0)
+        rootNodes[u.object.name] = { level: u.level, leafs: 0 };
+      else {
+        for (const rootNodeName in rootNodes) {
+          if (rootNodes[rootNodeName].level !== u.level)
+            rootNodes[rootNodeName].leafs += 1;
+        }
+      }
+
       for (let i = 0; i < u.object.subHeaders.length; i++) {
         const subHeader = u.object.subHeaders[i];
         if (!visited.has(subHeader)) {
@@ -61,9 +71,12 @@ export default function App() {
       }
     }
 
+    console.log(rootNodes);
+
     return depth;
   }, []);
 
+  // TODO: it will be changed.
   const prepareRow = useCallback((rowId) => {
     const tempRow = [];
     let cellId = 0;
@@ -211,62 +224,18 @@ export default function App() {
           <thead>
             {flatHeaders.map((level, i) => (
               <tr key={i}>
-                {level.map((fh, j) => {
-                  const hasChildren = fh.subHeaders?.length > 0;
-
-                  // Calculate colSpan recursively
-                  const getLeafCount = (node) => {
-                    if (!node.subHeaders || node.subHeaders.length === 0)
-                      return 1;
-                    return node.subHeaders.reduce(
-                      (acc, sub) => acc + getLeafCount(sub),
-                      0
-                    );
-                  };
-
-                  const colSpan = hasChildren ? getLeafCount(fh) : 1;
-                  const rowSpan = hasChildren ? 1 : maxRowSpan - i;
-
-                  return (
-                    <th key={j} colSpan={colSpan} rowSpan={rowSpan}>
-                      {fh.name}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-          {/* <thead>
-            {flatHeaders.map((level, i) => (
-              <tr key={i}>
                 {level.map((fh, j) => (
                   <th
                     key={j}
                     colSpan={fh.subHeaders.length}
-                    rowSpan={maxRowSpan}
+                    rowSpan={fh.subHeaders.length === 0 ? maxRowSpan - i : 1}
                   >
                     {fh.name}
                   </th>
                 ))}
-              </tr> */}
-          {/* <tr>
-              {HEADERS.map((H) => (
-                <th
-                  key={H.id}
-                  colSpan={H.subHeaders.length}
-                  rowSpan={`${H.subHeaders.length === 0 ? 2 : ""}`}
-                >
-                  {H.name}
-                </th>
-              ))}
-              <th rowSpan={maxRowSpan}>Action</th>
-            </tr>
-            <tr>
-              {subHeaders.map((s) => (
-                <th key={s.id}>{s.name}</th>
-              ))}
-            </tr> */}
-          {/* </thead> */}
+              </tr>
+            ))}
+          </thead>
           <tbody>
             {inputRows.map((row, i) => (
               <tr key={i}>
