@@ -88,9 +88,9 @@ export default function App() {
     const parentHeaders = flatHeaders[0];
     if (parentHeaders?.length) {
       for (let i = 0; i < parentHeaders.length; i++) {
-        if (colSpans[parentHeaders[i].name]) {
+        if (colSpans[parentHeaders[i].id]) {
           setCellCount(
-            (prevState) => prevState + colSpans[parentHeaders[i].name].leafs
+            (prevState) => prevState + colSpans[parentHeaders[i].id].leafs
           );
         } else {
           setCellCount((prevState) => prevState + 1);
@@ -98,6 +98,8 @@ export default function App() {
       }
     }
   }, [colSpans, flatHeaders]);
+
+  console.log(cellCount);
 
   const prepareRow = useCallback(
     (rowId) => {
