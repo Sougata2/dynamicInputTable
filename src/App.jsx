@@ -99,8 +99,6 @@ export default function App() {
     }
   }, [colSpans, flatHeaders]);
 
-  console.log(cellCount);
-
   const prepareRow = useCallback(
     (rowId) => {
       const tempRow = [];
@@ -221,7 +219,7 @@ export default function App() {
 
   function handleInsertRowBelow(rowId) {
     const newRow = prepareRow(rowId + 1);
-    console.log(unshiftRows(rowId + 1, inputRows));
+    // console.log(unshiftRows(rowId + 1, inputRows));
     const changedRows = [...inputRows];
     changedRows.splice(rowId + 1, 0, newRow);
     const unshiftedRows = unshiftRows(rowId + 1, changedRows);
