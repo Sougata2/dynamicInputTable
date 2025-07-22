@@ -1,51 +1,59 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import Queue from "./Queue";
+import { v4 as generateUUID } from "uuid";
+
 const HEADERS = [
-  { id: 1, name: "No.", subHeaders: [] },
+  { name: "No.", subHeaders: [] },
   {
-    id: 2,
     name: "Type",
     subHeaders: [
       {
-        id: 1,
         name: "A",
         subHeaders: [
-          { id: 1, name: "1", subHeaders: [] },
-          { id: 2, name: "2", subHeaders: [] },
-          { id: 3, name: "3", subHeaders: [] },
+          { name: "1", subHeaders: [] },
+          { name: "2", subHeaders: [] },
+          { name: "3", subHeaders: [] },
         ],
       },
-      { id: 2, name: "B", subHeaders: [] },
-      { id: 3, name: "C", subHeaders: [] },
+      { name: "B", subHeaders: [] },
+      { name: "C", subHeaders: [] },
     ],
   },
-  { id: 3, name: "Remarks", subHeaders: [] },
+  {
+    name: "Remarks",
+    subHeaders: [
+      { name: "A", subHeaders: [] },
+      { name: "B", subHeaders: [] },
+    ],
+  },
 ];
 
 const TABLE_ID = 1;
-const JOB_ID = "2G100047";
-// const JOB_ID = "2G100046";
+// const JOB_ID = "2G100047";
+const JOB_ID = "2G100046";
 const ENTITY = "ReportTable";
 
 export default function App() {
-  const subHeaders = HEADERS.flatMap((H) => H.subHeaders);
   const [inputRows, setInputRows] = useState([]);
   const [rowCount, setRowCount] = useState(0);
   const [flatHeaders, setFlatHeaders] = useState([]);
   const [maxRowSpan, setMaxRowSpan] = useState(0);
+  const [colSpans, setColSpans] = useState({});
+  const [cellCount, setCellCount] = useState(0);
 
   const flatenHeaders = useCallback((headerObj, tempHeaders) => {
     let depth = Number.MIN_SAFE_INTEGER;
     const visited = new Set();
     const queue = new Queue();
 
-    queue.add({ level: 1, object: headerObj, parents: [] });
+    queue.add({ level: 1, object: headerObj });
     visited.add(headerObj);
     const rootNodes = {};
 
     while (!queue.isEmpty()) {
       const u = queue.poll();
+      u.object = { ...u.object, id: generateUUID() };
       if (tempHeaders.length < u.level) {
         tempHeaders.push([]);
       }
@@ -54,7 +62,7 @@ export default function App() {
       depth = Math.max(depth, u.level);
 
       if (u.object.subHeaders.length > 0)
-        rootNodes[u.object.name] = { level: u.level, leafs: 0 };
+        rootNodes[u.object.id] = { level: u.level, leafs: 0 };
       else {
         for (const rootNodeName in rootNodes) {
           if (rootNodes[rootNodeName].level !== u.level)
@@ -70,17 +78,30 @@ export default function App() {
         }
       }
     }
-
-    console.log(rootNodes);
-
+    if (Object.keys(rootNodes).length > 0) {
+      setColSpans((prevState) => ({ ...prevState, ...rootNodes }));
+    }
     return depth;
   }, []);
 
-  // TODO: it will be changed.
-  const prepareRow = useCallback((rowId) => {
-    const tempRow = [];
-    let cellId = 0;
-    HEADERS.forEach((H) => {
+  const calculateCellCount = useCallback(() => {
+    const parentHeaders = flatHeaders[0];
+    if (parentHeaders?.length) {
+      for (let i = 0; i < parentHeaders.length; i++) {
+        if (colSpans[parentHeaders[i].name]) {
+          setCellCount(
+            (prevState) => prevState + colSpans[parentHeaders[i].name].leafs
+          );
+        } else {
+          setCellCount((prevState) => prevState + 1);
+        }
+      }
+    }
+  }, [colSpans, flatHeaders]);
+
+  const prepareRow = useCallback(
+    (rowId) => {
+      const tempRow = [];
       const rowValue = {
         tableId: TABLE_ID,
         jobId: JOB_ID,
@@ -89,23 +110,14 @@ export default function App() {
         value: "",
       };
 
-      if (H.subHeaders.length > 0) {
-        H.subHeaders.forEach(() => {
-          tempRow.push({
-            ...rowValue,
-            cellId: cellId++,
-          });
-        });
-      } else {
-        tempRow.push({
-          ...rowValue,
-          cellId: cellId++,
-        });
+      for (let i = 0; i < cellCount; i++) {
+        tempRow.push({ ...rowValue, cellId: i });
       }
-    });
-    tempRow[0].value = rowId + 1;
-    return tempRow;
-  }, []);
+      tempRow[0].value = rowId + 1;
+      return tempRow;
+    },
+    [cellCount]
+  );
 
   const shiftRows = useCallback((rowId, rows) => {
     let newRowId = rowId;
@@ -186,6 +198,10 @@ export default function App() {
     setMaxRowSpan(depth);
   }, [flatenHeaders]);
 
+  useEffect(() => {
+    calculateCellCount();
+  }, [calculateCellCount]);
+
   function handleTableInputChange(e, i, j) {
     setInputRows((prevState) => {
       prevState[i][j].value = e.target.value;
@@ -227,12 +243,17 @@ export default function App() {
                 {level.map((fh, j) => (
                   <th
                     key={j}
-                    colSpan={fh.subHeaders.length}
+                    colSpan={colSpans[fh.id] ? colSpans[fh.id].leafs : 1}
                     rowSpan={fh.subHeaders.length === 0 ? maxRowSpan - i : 1}
                   >
                     {fh.name}
                   </th>
                 ))}
+                {i === 0 && (
+                  <th key={"action"} rowSpan={maxRowSpan}>
+                    Action
+                  </th>
+                )}
               </tr>
             ))}
           </thead>
