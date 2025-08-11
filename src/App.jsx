@@ -4,7 +4,7 @@ import Queue from "./Queue";
 import { v4 as generateUUID } from "uuid";
 
 const HEADERS = [
-  { name: "No.", subHeaders: [] },
+  { name: "SNo.", subHeaders: [] },
   {
     name: "Type",
     subHeaders: [
@@ -110,7 +110,7 @@ export default function App() {
         value: "",
       };
 
-      for (let i = 0; i < cellCount; i++) {
+      for (let i = 0; i < cellCount + 1; i++) {
         tempRow.push({ ...rowValue, cellId: i });
       }
       tempRow[0].value = rowId + 1;
@@ -240,6 +240,7 @@ export default function App() {
           <thead>
             {flatHeaders.map((level, i) => (
               <tr key={i}>
+                {i === 0 && <th rowSpan={maxRowSpan}></th>}
                 {level.map((fh, j) => (
                   <th
                     key={j}
